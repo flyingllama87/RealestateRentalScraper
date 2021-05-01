@@ -1,8 +1,8 @@
-# Real estate scrapers and scripts
+# Real Estate Site Scrapers and Scripts
 
 Repo contains:
 - A scraper for recently sold properties listed on realestate.com.au that fits my specific criteria (stage 1).
-- A 'house size' (not lot size) and 'year built' scraper for onthehouse.com.au (stage 2).
+- A 'house size' (not lot size) and 'year built' scraper for onthehouse.com.au using the addresses from stage 1 (stage 2).
 - A Google Sheets script to assign a 'score' to each property based on criteria such as cost, lot size, year built, house size, proximity to parks etc (stage 3).
 
 This was for a once off project and thus each 'stage' needs its output data massaged into the format required by the next stage.
@@ -22,13 +22,13 @@ Please keep the ToS in mind when using these scripts.
 
 The purpose of these scripts are to better inform my purchasing decisions in a structured manner AND for educational purposes. I could have compiled this information manually but where is the fun in that? :)
 
-### realestate.com.au sold scraper (RealestateSoldScraper.py):
+### realestate.com.au Sold Scraper (RealestateSoldScraper.py):
 
 - Quick and dirty hack of [DPerrySvendsen's RealestateRentalScraper](https://github.com/DPerrySvendsen/RealestateRentalScraper). Thanks dude. I hope you found a sweet rental!
 - Aggregates the data into a CSV file that can be viewed in any spreadsheet app (see `scraper_output-20210501-010101-example` for an example).
 - Uses Python's request library. Needs you to grab a realestate.com.au cookie & UA from Chrome developer tools or something else. Maybe more appropriate to use selenium.
 
-### onthehouse.com.au scraper (OnTheHouseScraper.py):
+### onthehouse.com.au Scraper (OnTheHouseScraper.py):
 
 - Grabs the 'Year built' & 'house size' information from onthehouse.com.au for addresses listed in the addresses.txt file. This data is sometimes inaccurate but is mostly correct and looking up each property in my council's PD site takes too long. Ads on realestate.com.au often omit this information.
 - Uses Selenium to avoid messing about with headers.
