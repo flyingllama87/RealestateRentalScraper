@@ -1,49 +1,62 @@
-# Realestate.com.au rental search scraper
+# Realestate.com.au sold search scraper
 
 import re
 import requests
 from lxml import html
+import time
+import pprint
 
 # ---
 
-# Set scraper parameters here
-scrapeDescriptions  = True
-outputFilename      = 'scraper_output.tsv'
-pagesToLoad         = 25
 
-# Set search parameters here
+# Set scraper parameters here
+scrapeDescriptions  = False
+outputFilename      = 'scraper_output'
+pagesToLoad         = 2
 propertyType        = 'house'
-bedsMin             = 1
-bedsMax             = 3
-rentMin             = 200
-rentMax             = 800
-postcodes           = ['3000', '3005', '3011', '3016', '3021']
 includeSurrounding  = False
+lotSize = 600
+maxPrice = 600000
+region = 'logan+city+-+region,+qld'
+minBaths = 3
 
 # ---
 
 # Set headers to bypass user agent filtering 
-headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
-
-# Define the seperator used between each postcode in the URL.
-# If this script has stopped returning any results, it's probably 
-# because a change has been made to the site, and the server now 
-# expects a different seperator. This has happened once before, 
-# and updating this variable (by manually performing a search and
-# observing which seperator was used) was enough to fix it.
-seperator = '%3b+'
-
-# ---
+headers = {
+          # Insert your user agent 
+          #'User-Agent': 'Mozilla/5.0',
+          'authority': 'www.realestate.com.au',
+          'cache-control': 'max-age=0',
+          'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"',
+          'sec-ch-ua-mobile': '?0',
+          'dnt': '1',
+          'upgrade-insecure-requests': '1',
+          'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+          'sec-fetch-site': 'same-origin',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-user': '?1',
+          'sec-fetch-dest': 'document',
+          #'referer': 'realestate.com.au',
+          #'origin': 'https://www.realestate.com.au',
+          'accept-language': 'en-AU,en;q=0.9,it-IT;q=0.8,it;q=0.7,ja-JP;q=0.6,ja;q=0.5,en-GB;q=0.4,en-US;q=0.3',
+          # Grab cookie from google chrome dev tools
+          # 'cookie': 'QSI_HistorySession=https%3A%2F'
+        }
 
 def loadPage (url):
-
+  print("Waiting 5 seconds before launching request to avoid getting banned...")
+  time.sleep(5)
+  print("Sending request...")
+  req = requests.get(url, headers=headers)
+  print(req.status_code)
+  print(req.reason)
   # Send a request and parse the content
-  return html.fromstring(requests.get(url, headers=headers).content)
+  return html.fromstring(req.content)
 
 # ---
 
 def getSearchResults (url, pageNumber):
-
   # Load the search page and extract the search results
   return loadPage(url.format(pageNumber)).findall('.//div[@class="tiered-results tiered-results--exact"]//article')
 
@@ -52,24 +65,20 @@ def getSearchResults (url, pageNumber):
 def buildURLString ():
 
   # Create a template for the URL, as well as for a search description string
-  url = 'http://www.realestate.com.au/rent/property-{}-with-{}-bedrooms-between-{}-{}-in-'
+  url = 'https://www.realestate.com.au/sold/property-house-size-{}-between-0-{}-in-{}'
   searchDescription = \
-    'Searching for {} - {} bedroom properties for rent, ' + \
-    'within a price range of ${} - ${} per month, '       + \
-    'in the following postcodes: '
+    'Searching for {}m2 minimum properties with a sell cost of $0 - ${}.  ' + \
+    '{} bathrooms minimum.  ' + \
+    'Location: {}'
 
-  # Add the list of postcodes to both templates
-  for postcode in postcodes:
-    url               += postcode + seperator
-    searchDescription += postcode + ', '
     
   # Add the remaining parameters to the URL
-  url = url[:-len(seperator)] + '/list-{}?activeSort=price-asc&maxBeds={}&includeSurrounding={}'
-  url = url.format(propertyType, bedsMin, rentMin, rentMax, '{}', bedsMax, 'true' if includeSurrounding else 'false')
+  url = url + '/list-{}?numBaths={}&misc=ex-no-sale-price&activeSort=solddate&source=refinement'
+  url = url.format(lotSize, maxPrice, region, '{}', minBaths)
+  print(url)
   
   # Add the remaining parameters to the search description
-  searchDescription = searchDescription[:-2] + (' and surrounding suburbs.' if includeSurrounding else '.')
-  searchDescription = searchDescription.format(bedsMin, bedsMax, rentMin, rentMax)   
+  searchDescription = searchDescription.format(lotSize, maxPrice, minBaths, region)   
   
   # Print the search description
   print(searchDescription)
@@ -93,15 +102,6 @@ def parsePriceRange (listing):
   price = '$' + re.sub('[^\d-]','', price)
   price = price.replace('-', ' - $')
   
-  # Some listings include both a per-week and per-month price
-  # Where the two have been concatenated, assume three figures and trim accordingly.
-  if len(price) > 4 and '-' not in price:
-    price = price[:4]
-    
-  # If the price is expressed as a range, price should reflect the higher end
-  if '-' in price:
-    price = price[-4:]
-
   # Record the property price
   listing['Price'] = price
 
@@ -122,21 +122,8 @@ def parseType (listing):
   # Record the property type
   propertyType = listing['Link'][len('/property-'):]
   propertyType = propertyType[:propertyType.find('-')].title()
-  listing['Type'] = propertyType
-
-# ---
-
-def parseDescription (page):
-
-  # Extract and parse the property description
-  description = page.xpath('.//span[@class="property-description__content"]//text()')
-  description = ' '.join(description)
-  description = ' '.join(description.split()).strip()
-  description = description.replace('*', '')
-  description = description.replace('"', '\'')
-  description = description.replace('“', '\'')
-  description = description.replace('”', '\'')
-  return description
+  # Hack / patch
+  listing['Type'] = "House"
 
 # ---
 
@@ -152,7 +139,10 @@ def parseListingDetails (article):
     'Car Spaces'  : scrape(article, './/ul/li[3]/span'),
     'Description' : '',
     'Inspections' : '',
+    'Lot Size'    : scrape(article, 'div[4]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]'),
+    'Sold Date'   : scrape(article, 'div[4]/div[1]/span')
   }
+
   
   # Parse various additional details
   parsePriceRange(listing)
@@ -160,10 +150,10 @@ def parseListingDetails (article):
   parseType(listing)
   
   # Remove the suburb from the address
-  listing['Address'] = listing['Address'][:listing['Address'].find(',')]
+  # listing['Address'] = listing['Address'][:listing['Address'].find(',')]
   
   # Append the top-level domain to create a full link
-  listing['Link'] = 'http://www.realestate.com.au' + listing['Link']   
+  listing['Link'] = 'https://www.realestate.com.au' + listing['Link']   
   
   # Assume there are no car spaces if the field is empty
   if listing['Car Spaces'] == '':
@@ -171,24 +161,22 @@ def parseListingDetails (article):
 
   # Follow the link and scrape the property description
   if scrapeDescriptions:
+    print("Sleeping for 5 to prevent getting banned for scraping...")
+    time.sleep(5)
     page = loadPage(listing['Link'])
     listing['Description'] = parseDescription(page)
 
-  # Sometimes, the property is labelled as a house, despite the description saying
-  # it's actually an apartment. In these cases, the description is updated accordingly.
-  # It's possible for this check to produce false positives, so it's best not to remove
-  # these resulte entirely.
-  if propertyType == 'house' and listing['Description'].lower() in ['apartment', 'unit', 'flat', 'townhouse']:
-    listing['Type'] = 'Apartment'
+  listing['Sold Date'] = re.search('\d+.*', listing['Sold Date']).group()
+  listing['Lot Size'] = re.search('(\d|,|.)+', listing['Lot Size']).group()
+  listing['Lot Size'] = listing['Lot Size'].replace(",", "")
 
   # Return the listing details
   return listing
   
 # ---
 
+# Scrape a certain piece of data from the provided HTML snippet
 def scrape (article, xpath):
-
-  # Scrape a certain piece of data from the provided HTML snippet
   result = article.xpath(xpath)
   if len(result) > 0:
     # If the xpath matches an element/attribute, return the result as a string
@@ -200,12 +188,13 @@ def scrape (article, xpath):
     # If no data was found, return an empty string
     return ''
   
-# ---
+
+# --- Main
 
 try:
-  
+  timeStr = time.strftime("%Y%m%d-%H%M%S")
   # Create or load the output file
-  outputFile = open(outputFilename, 'w')
+  outputFile = open(outputFilename + "-" + timeStr + ".csv", 'w')
 
   # Construct the base URL
   searchURL = buildURLString()
@@ -220,18 +209,23 @@ try:
       
   # Create the column headers
   outputFile.write(
-    'Link'        + '\t' + \
-    'Address'     + '\t' + \
-    'Suburb'      + '\t' + \
-    'Price'       + '\t' + \
-    'Bedrooms'    + '\t' + \
-    'Bathrooms'   + '\t' + \
-    'Car Spaces'  + '\t' + \
-    'Description' + '\n' 
+    'Link'        + ',' + \
+    'Type'        + ',' + \
+    'Address'     + ',' + \
+    'Suburb'      + ',' + \
+    'Price'       + ',' + \
+    'Bedrooms'    + ',' + \
+    'Bathrooms'   + ',' + \
+    'Car Spaces'  + ',' + \
+    'Description' + ',' + \
+    'Lot Size'    + ',' + \
+    'Sold Date'   + ',' + '\n'
   )
 
   # Begin requesting each page sequentially
   while pageNumber <= pagesToLoad:
+
+    print("Printing page {} ...\n".format(pageNumber))
 
     # Send a request, parse the response and retrieve the search results
     print('\nRequesting page ' + str(pageNumber) + '...')
@@ -254,15 +248,17 @@ try:
       
       # Write the full details to the output file
       outputFile.write(
-        listing['Link']        + '\t' + \
-        listing['Type']        + '\t' + \
-        listing['Address']     + '\t' + \
-        listing['Suburb']      + '\t' + \
-        listing['Price']       + '\t' + \
-        listing['Bedrooms']    + '\t' + \
-        listing['Bathrooms']   + '\t' + \
-        listing['Car Spaces']  + '\t' + \
-        listing['Description'] + '\n'
+        listing['Link']        + ',' + \
+        listing['Type']        + ',' + \
+        listing['Address']     + ',' + \
+        # listing['Suburb']      + ',' + \
+        listing['Price']       + ',' + \
+        listing['Bedrooms']    + ',' + \
+        listing['Bathrooms']   + ',' + \
+        listing['Car Spaces']  + ',' + \
+        listing['Description'] + ',' + \
+        listing['Lot Size']  + ',' + \
+        listing['Sold Date']   + ','  + '\n'
       )
       
       # Only print a partial address to the console
@@ -271,8 +267,8 @@ try:
       
       # Print a trimmed version to the console
       print(
-        address                         + '\t' + \
-        listing['Suburb'].ljust(maxLen) + '\t' + \
+        address                         + '\t\t' + \
+        # listing['Suburb'].ljust(maxLen) + '\t\t' + \
         listing['Price']                + '\t' + \
         listing['Bedrooms']             + '\t' + \
         listing['Bathrooms']
