@@ -1,11 +1,15 @@
 # Real estate scrapers and scripts
+
+Repo contains:
 - A scraper for recently sold properties listed on realestate.com.au that fits my specific criteria (stage 1).
 - A 'house size' (not lot size) and 'year built' scraper for onthehouse.com.au (stage 2).
 - A Google Sheets script to assign a 'score' to each property based on criteria such as cost, lot size, year built, house size, proximity to parks etc (stage 3).
 
-This was for a once off project and thus each 'stage' needs its output data massaged into the format required by the next stage. Be warned, these scripts are quick and dirty.
+This was for a once off project and thus each 'stage' needs its output data massaged into the format required by the next stage.
 
-### Legal notice (aka Scraping and you)
+Be warned, these scripts are quick and dirty.
+
+### Legal Notice (AKA Scraping And You)
 
 Bulk scraping or indexing of content from either website is against the ToS of the respective sites. I justify the use of scripts in that:
  - My criteria is highly specific (not bulk collection)
