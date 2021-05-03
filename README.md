@@ -17,6 +17,7 @@ Bulk scraping or indexing of content from either website is against the ToS of t
  - I've looked at most of these ads & check the URIs for each anyway for other assessment criteria not contained in these scripts (e.g. build quality, proximity to parks etc)
  - Personal use only; data collected does not go to anyone else
  - I have a 5 second sleep between each request so as not to make excessive traffic demands
+ - It's for a one off project & not used on an on-going basis.
 
 Please keep the ToS in mind when using these scripts.
 
